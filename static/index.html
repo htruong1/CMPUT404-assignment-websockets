@@ -260,9 +260,25 @@ function update() {
 
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
+    const worldURL = "http://" + host + "/world"; 
     socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        let req = new Request(worldURL, {
+            method: "GET", 
+            headers: {
+                "Content-Type": "application/json"
+            }});
+        const reqPromise = fetch(req)
+        console.log("do i get called")
+        reqPromise.then((httpResponse) => {
+            if(httpResponse.status === 200) {
+                httpResponse.json().then((results) => {
+                    console.log(results, this.world)
+                    world = results
+                });
+            }
+        })
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
