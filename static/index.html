@@ -123,6 +123,9 @@ function getPosition(e) {
 
 function addEntity(entity, data) {
     world[entity] = data;
+    let newEntity = {};
+    newEntity[entity] = data;
+    socket.send(JSON.stringify(newEntity));
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
 }
@@ -228,6 +231,12 @@ mouse = (function() {
     return self;
 })();
 
+function randomColor() {
+    var colors = ['red', 'blue', 'yellow', 'green', 'aqua'],
+        randomColorIndex = Math.floor((Math.random() * (colors.length)));
+    return colors[randomColorIndex];
+}
+
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
@@ -239,8 +248,8 @@ mouse.mouseuppers.push(function(x,y,clicked,e) {
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y,'colour': randomColor(),
+                          'radius':1});
 });
 
 
@@ -261,7 +270,12 @@ function wsSetup() {
     socket.onmessage = function(msg) {  
         try {
             debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //XXX: TODO What are you going to do here?     
+            let keys =JSON.parse(msg.data)
+            for(let key in keys) {
+                world[key] = keys[key];
+            renderFrame();
+            }
         } catch (e) {
             alert("socket on message: " + e);
         }
@@ -269,9 +283,6 @@ function wsSetup() {
 }
 
 wsSetup();
-
-
-
 
 // 30 frames per second
 setInterval( update, 1000/30.0);

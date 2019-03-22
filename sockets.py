@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect
 from flask_sockets import Sockets
 import gevent
 from gevent import queue
@@ -24,7 +24,28 @@ import os
 
 app = Flask(__name__)
 sockets = Sockets(app)
-app.debug = True
+app.debug = True 
+
+clients = list()
+
+def send_all(msg):
+    for client in clients:
+        client.put( msg )
+
+def send_all_json(obj):
+    send_all( json.dumps(obj) )
+
+class Client:
+    def __init__(self):
+        self.queue = queue.Queue()
+
+    def put(self, v):
+        self.queue.put_nowait(v)
+
+    def get(self):
+        return self.queue.get()
+
+
 
 class World:
     def __init__(self):
@@ -64,24 +85,47 @@ myWorld = World()
 def set_listener( entity, data ):
     ''' do something with the update ! '''
 
-myWorld.add_set_listener( set_listener )
+    myWorld.add_set_listener( set_listener )
         
 @app.route('/')
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect("/static/index.html", code=301)
 
 def read_ws(ws,client):
     '''A greenlet function that reads from the websocket and updates the world'''
     # XXX: TODO IMPLEMENT ME
-    return None
+    try:
+        while True:
+            entity = ws.receive()
+            if(entity is not None):
+                packet = json.loads(entity)
+                send_all_json(packet)
+                for key in packet.keys():
+                    myWorld.set(key, packet[key])
+            else:
+                break
+    except:
+        print("error")
 
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
     # XXX: TODO IMPLEMENT ME
-    return None
+    client = Client()
+    clients.append(client)
+    g = gevent.spawn(read_ws, ws, client)
+    try:
+        while True:
+            entity = client.get()
+            print(entity)
+            ws.send(entity)
+    except Exception as e:
+        print("Web socket error")
+    finally:
+        clients.remove(client)
+        gevent.kill(g)
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
